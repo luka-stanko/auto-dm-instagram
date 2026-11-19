@@ -1,0 +1,7 @@
+# Mode essai pour npm run dev : rien ne part chez Instagram.
+# Copie ce fichier en .dev.vars (cp .dev.vars.example .dev.vars).
+DRY_RUN=1
+IG_TOKEN=essai
+IG_APP_SECRET=secret-essai
+VERIFY_TOKEN=essai-verification
+ADMIN_KEY=essai

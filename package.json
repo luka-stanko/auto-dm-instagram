@@ -1,0 +1,16 @@
+{
+  "name": "auto-dm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ton auto-DM Instagram maison : commentaire, réponse, DM avec bouton, lien. Tourne gratuitement sur Cloudflare.",
+  "type": "module",
+  "scripts": {
+    "installer": "node scripts/installer.mjs",
+    "dev": "wrangler dev --local --port 8787 --test-scheduled",
+    "db:local": "wrangler d1 execute auto-dm --local --file schema.sql",
+    "test": "node test/simuler.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.164.0"
+  }
+}

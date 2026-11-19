@@ -1,0 +1,24 @@
+name = "auto-dm"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# La base de données. `npm run installer` crée la tienne et remplit database_id.
+[[d1_databases]]
+binding = "DB"
+database_name = "auto-dm"
+database_id = "A-REMPLIR-PAR-L-INSTALLATEUR"
+
+# Toutes les 10 minutes : réessayer les envois freinés, renouveler le jeton Instagram.
+[triggers]
+crons = ["*/10 * * * *"]
+
+# Ce qui apparaît sur ta page de confidentialité (Meta l'exige pour mettre l'app en ligne).
+[vars]
+OWNER_NAME = "Ton nom"
+CONTACT_EMAIL = "toi@exemple.com"
+GRAPH_VERSION = "v24.0"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true

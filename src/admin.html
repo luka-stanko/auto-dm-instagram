@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Auto-DM</title>
+<style>
+  :root {
+    --bg: #f4f4f6;
+    --card: #ffffff;
+    --line: #e6e6eb;
+    --text: #141418;
+    --muted: #6d6d78;
+    --faint: #a3a3ad;
+    --blue: #2f6bff;
+    --green: #16a34a;
+    --green-bg: #dcfce7;
+    --red: #dc2626;
+    --ink: #111114;
+    --radius: 16px;
+    --shadow: 0 1px 2px rgba(20,20,24,.04), 0 4px 16px rgba(20,20,24,.04);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 24px 20px 64px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 28px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -.01em; }
+  .logo { width: 30px; height: 30px; border-radius: 9px; background: var(--ink); display: grid; place-items: center; }
+  .logo svg { width: 17px; height: 17px; }
+  .account { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .dot.on { background: var(--green); box-shadow: 0 0 0 3px var(--green-bg); }
+  .dot.warn { background: #f59e0b; }
+
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  h1 { font-size: 30px; line-height: 1.1; margin: 0 0 6px; letter-spacing: -.025em; font-weight: 700; }
+  .sub { color: var(--muted); margin: 0; font-size: 14px; }
+  .actions { display: flex; gap: 8px; }
+  .btn { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 9px 16px; font-weight: 550; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; }
+  .btn:hover { border-color: #cfcfd6; }
+  .btn.dark { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn.dark:hover { background: #2a2a30; }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 7px 10px; }
+  .btn.ghost:hover { color: var(--text); background: #ececf0; }
+  .btn.danger:hover { color: var(--red); }
+  .btn svg { width: 15px; height: 15px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px 18px; box-shadow: var(--shadow); }
+  .stat .label { font-size: 11.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .stat .value { font-size: 34px; font-weight: 600; letter-spacing: -.03em; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+  .stat .value.blue { color: var(--blue); }
+  .stat .hint { font-size: 12.5px; color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .panel-title { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); font-weight: 650; font-size: 14px; }
+  .panel-title span { color: var(--muted); font-weight: 500; }
+
+  .auto { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .auto:last-child { border-bottom: 0; }
+  .badge { font-size: 10.5px; font-weight: 750; letter-spacing: .06em; padding: 3px 7px; border-radius: 6px; background: var(--green-bg); color: var(--green); }
+  .badge.off { background: #eeeef1; color: var(--faint); }
+  .auto-name { font-weight: 650; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auto-meta { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .thumbs { display: inline-flex; }
+  .thumbs i { width: 18px; height: 24px; border-radius: 4px; background: #d9d9e0 center/cover; border: 1.5px solid #fff; margin-left: -6px; display: inline-block; }
+  .thumbs i:first-child { margin-left: 0; }
+  .chip { display: inline-block; font-size: 11.5px; font-weight: 650; padding: 2px 8px; border-radius: 999px; background: #f0f0f3; color: #3a3a42; letter-spacing: .02em; }
+  .auto-nums { color: var(--muted); font-size: 13px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .auto-nums b { color: var(--text); font-weight: 600; }
+  .auto-side { display: flex; align-items: center; gap: 4px; }
+
+  .switch { position: relative; width: 38px; height: 22px; flex: none; }
+  .switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; z-index: 1; }
+  .switch span { position: absolute; inset: 0; border-radius: 999px; background: #d4d4db; transition: background .18s; }
+  .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .18s; }
+  .switch input:checked + span { background: var(--blue); }
+  .switch input:checked + span::after { transform: translateX(16px); }
+
+  .empty { padding: 42px 24px; text-align: center; color: var(--muted); }
+  .empty b { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+
+  .feed { max-height: 620px; overflow: auto; }
+  .ev { display: flex; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .ev:last-child { border-bottom: 0; }
+  .ev-ic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; flex: none; background: #f0f0f3; font-size: 13px; }
+  .ev-ic.dm, .ev-ic.link { background: #e8efff; }
+  .ev-ic.click { background: var(--green-bg); }
+  .ev-ic.error { background: #fde8e8; }
+  .ev-body { min-width: 0; }
+  .ev-body b { font-weight: 600; }
+  .ev-text { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ev-time { color: var(--faint); font-size: 12px; }
+
+  /* Éditeur */
+  .modal { position: fixed; inset: 0; background: rgba(16,16,20,.45); display: grid; place-items: start center; overflow: auto; padding: 32px 16px; z-index: 10; }
+  .sheet { width: min(1040px, 100%); background: var(--bg); border-radius: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.25); }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--line); background: var(--card); border-radius: 22px 22px 0 0; }
+  .sheet-head h2 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
+  .sheet-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; padding: 22px; }
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); }
+  .step-head { display: flex; align-items: center; gap: 10px; font-weight: 650; margin-bottom: 12px; }
+  .step-head .n { width: 24px; height: 24px; border-radius: 7px; background: var(--ink); color: #fff; font-size: 12px; display: grid; place-items: center; flex: none; }
+  .step-head .grow { flex: 1; }
+  .link-line { width: 2px; height: 16px; background: var(--line); margin-left: 29px; }
+  label.f { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 10px 0 5px; }
+  .step-head + label.f, .row2 label.f { margin-top: 0; }
+  .help + label.f { margin-top: 14px; }
+  input.t, textarea.t { width: 100%; border: 1px solid var(--line); background: #fbfbfc; border-radius: 10px; padding: 9px 11px; outline: none; transition: border-color .15s, box-shadow .15s; }
+  textarea.t { resize: vertical; min-height: 70px; }
+  input.t:focus, textarea.t:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47,107,255,.12); background: #fff; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .count { font-size: 11.5px; color: var(--faint); text-align: right; margin-top: 3px; }
+  .opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fbfbfc; font-size: 14px; }
+  .opt + .opt { margin-top: 8px; }
+  .help { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+  .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px; margin-top: 10px; }
+  .media { position: relative; aspect-ratio: 9/16; border-radius: 10px; background: #e3e3e8 center/cover; border: 2px solid transparent; padding: 0; overflow: hidden; }
+  .media.on { border-color: var(--blue); }
+  .media.on::after { content: "✓"; position: absolute; top: 5px; right: 5px; width: 18px; height: 18px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 11px; display: grid; place-items: center; }
+  .media small { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 5px 4px; font-size: 10px; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.6)); text-align: left; line-height: 1.2; }
+  .sheet-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 22px; border-top: 1px solid var(--line); background: var(--card); border-radius: 0 0 22px 22px; }
+  .err { color: var(--red); font-size: 13.5px; }
+
+  /* Aperçu téléphone */
+  .phone-wrap { position: sticky; top: 0; }
+  .phone-label { font-size: 12px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; text-align: center; }
+  .phone { background: #000; border-radius: 40px; padding: 10px; box-shadow: 0 18px 40px rgba(0,0,0,.22), inset 0 0 0 2px #2b2b2f; }
+  .screen { background: #000; border-radius: 31px; overflow: hidden; height: 560px; display: flex; flex-direction: column; color: #f5f5f5; }
+  .notch { height: 30px; display: flex; justify-content: center; align-items: flex-start; padding-top: 8px; }
+  .notch i { width: 90px; height: 24px; border-radius: 999px; background: #111; display: block; }
+  .ig-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px 10px; border-bottom: 1px solid #1d1d1f; font-size: 13px; font-weight: 600; }
+  .ig-av { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7); }
+  .thread { flex: 1; overflow: auto; padding: 12px 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .msg { display: flex; gap: 6px; align-items: flex-end; max-width: 88%; }
+  .msg .ig-av { width: 20px; height: 20px; flex: none; }
+  .bubble { background: #262628; border-radius: 18px; font-size: 12.5px; line-height: 1.35; overflow: hidden; }
+  .bubble p { margin: 0; padding: 9px 12px; white-space: pre-wrap; word-wrap: break-word; }
+  .bubble .b { border-top: 1px solid #3a3a3d; padding: 8px 12px; text-align: center; font-weight: 600; color: #fff; }
+  .me { align-self: flex-end; background: #3797f0; color: #fff; border-radius: 18px; padding: 7px 12px; font-size: 12.5px; max-width: 80%; }
+  .sys { align-self: center; font-size: 10.5px; color: #8e8e93; padding: 2px 0; }
+  .ig-input { margin: 8px 12px 14px; border: 1px solid #262628; border-radius: 999px; padding: 8px 14px; font-size: 12px; color: #8e8e93; }
+
+  /* Connexion */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  .login-card { width: min(380px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 28px; box-shadow: var(--shadow); }
+  .login-card h1 { font-size: 22px; margin: 16px 0 6px; }
+  .login-card p { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  .login-card .btn { width: 100%; justify-content: center; margin-top: 12px; padding: 11px; }
+
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 20; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+
+  @media (max-width: 900px) {
+    .grid, .sheet-body { grid-template-columns: 1fr; }
+    .phone-wrap { position: static; max-width: 300px; margin: 0 auto; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 16px 16px 48px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat .value { font-size: 28px; }
+    .auto { grid-template-columns: minmax(0, 1fr) auto; }
+    .auto .badge { grid-column: 1 / -1; justify-self: start; }
+    .row2 { grid-template-columns: 1fr; }
+    .account .pill { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login" class="login" hidden>
+  <form class="login-card" id="login-form">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9 11.5l2 2 4-4"/></svg></div>
+    <h1>Ton auto-DM</h1>
+    <p>Entre la clé de ton interface. Elle reste retenue sur cet appareil.</p>
+    <input class="t" id="key" type="password" autocomplete="current-password" placeholder="Clé de l'interface" required>
+    <button class="btn dark" type="submit">Ouvrir</button>
+    <p class="err" id="login-err" hidden></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9 11.5l2 2 4-4"/></svg></div>
+        Auto-DM
+      </div>
+      <div class="account">
+        <span class="pill"><span class="dot" id="status-dot"></span><span id="status-text">…</span></span>
+        <span id="account-name"></span>
+        <button class="btn ghost" id="logout" title="Se déconnecter de cet appareil">Quitter</button>
+      </div>
+    </div>
+
+    <div class="head">
+      <div>
+        <h1>Automatisations</h1>
+        <p class="sub">Commentaire à mot-clé → réponse publique → DM avec bouton → lien</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>Actualiser</button>
+        <button class="btn dark" id="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nouvelle automatisation</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="label">Envois</div><div class="value blue" id="s-sends">0</div><div class="hint">commentaires à mot-clé qui ont reçu le DM</div></div>
+      <div class="stat"><div class="label">Clics</div><div class="value" id="s-clicks">0</div><div class="hint" id="s-clicks-hint">personnes qui ont ouvert le lien</div></div>
+      <div class="stat"><div class="label">CTR</div><div class="value" id="s-ctr">0 %</div><div class="hint">clics ÷ envois</div></div>
+      <div class="stat"><div class="label">Actives</div><div class="value" id="s-active">0</div><div class="hint" id="s-active-hint">automatisations en ligne</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-title">Tes automatisations <span id="count"></span></div>
+        <div id="list"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Dernières actions <span id="queued"></span></div>
+        <div class="feed" id="feed"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="editor" hidden>
+  <form class="sheet" id="form" novalidate>
+    <div class="sheet-head">
+      <h2 id="editor-title">Nouvelle automatisation</h2>
+      <button type="button" class="btn ghost" data-close>Fermer</button>
+    </div>
+    <div class="sheet-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-head"><span class="n">1</span><span class="grow">Commentaire</span></div>
+          <div class="row2">
+            <div><label class="f" for="f-keyword">Mot-clé à commenter</label><input class="t" id="f-keyword" placeholder="MANYCHAT" maxlength="40" required></div>
+            <div><label class="f" for="f-name">Nom (pour toi)</label><input class="t" id="f-name" placeholder="Reel ManyChat maison" maxlength="80"></div>
+          </div>
+          <p class="help">Reconnu en majuscules ou minuscules, avec accents, et avec une petite faute à partir de 5 lettres.</p>
+          <label class="f">Sur quelles publications</label>
+          <div class="opt"><span>Toutes mes publications</span><label class="switch"><input type="checkbox" id="f-all" checked><span></span></label></div>
+          <div id="media-box" hidden>
+            <div class="media-grid" id="media-grid"></div>
+            <p class="help" id="media-help"></p>
+          </div>
+        </div>
+        <div class="link-line"></div>
+
+        <div class="step">
+          <div class="step-head"><span class="n">2</span><span class="grow">Réponse publique</span><label class="switch"><input type="checkbox" id="f-reply-on" checked><span></span></label></div>
+          <div id="reply-box">
+            <label class="f" for="f-replies">Une réponse par ligne, le bot en tire une au hasard</label>
+            <textarea class="t" id="f-replies" rows="3">C'est fait, regarde tes messages 📩
+Envoyé ! Va voir tes DM 🔥
+Je viens de te l'envoyer en privé 🙌</textarea>
+          </div>
+        </div>
+        <div class="link-line"></div>
+
+        <div class="step">
+          <div class="step-head"><span class="n">3</span><span class="grow">DM avec bouton</span></div>
+          <label class="f" for="f-dm">Message</label>
+          <textarea class="t" id="f-dm" maxlength="640" required>Hello {pseudo} ! Voici le guide pour installer ton propre auto-DM, gratuitement. Clique sur le bouton ci-dessous pour le recevoir 👇</textarea>
+          <div class="count"><span data-count="f-dm"></span> / 640 · {pseudo} devient le pseudo de la personne</div>
+          <label class="f" for="f-button">Texte du bouton</label>
+          <input class="t" id="f-button" maxlength="20" value="Recevoir le guide" required>
+          <div style="height:12px"></div>
+          <div class="opt"><span>Un DM qui demande de s'abonner avant le lien</span><label class="switch"><input type="checkbox" id="f-follow"><span></span></label></div>
+          <div id="follow-box" hidden>
+            <label class="f" for="f-follow-text">Message si la personne n'est pas abonnée</label>
+            <textarea class="t" id="f-follow-text" maxlength="640">Avant de t'envoyer le lien, assure-toi d'être abonné à mon compte 🙏 Une fois que c'est bon, clique sur « C'est fait » 👇</textarea>
+            <div class="count"><span data-count="f-follow-text"></span> / 640</div>
+            <label class="f" for="f-follow-button">Bouton</label>
+            <input class="t" id="f-follow-button" maxlength="20" value="C'est fait">
+          </div>
+        </div>
+        <div class="link-line"></div>
+
+        <div class="step">
+          <div class="step-head"><span class="n">4</span><span class="grow">Le lien</span></div>
+          <label class="f" for="f-url">Lien à envoyer</label>
+          <input class="t" id="f-url" type="url" placeholder="https://…" required>
+          <label class="f" for="f-link-text">Message avec le lien</label>
+          <textarea class="t" id="f-link-text" maxlength="640" rows="2">Et voilà ! Le kit et le guide d'installation sont ici 👇</textarea>
+          <label class="f" for="f-link-label">Texte du bouton</label>
+          <input class="t" id="f-link-label" maxlength="20" value="Ouvrir le guide">
+          <div style="height:12px"></div>
+          <div class="opt"><span>Une seule fois par personne</span><label class="switch"><input type="checkbox" id="f-once" checked><span></span></label></div>
+          <p class="help">Le lien passe par ton bot, qui compte qui l'a ouvert avant de rediriger.</p>
+        </div>
+      </div>
+
+      <div class="phone-wrap">
+        <div class="phone-label">Aperçu du DM</div>
+        <div class="phone"><div class="screen">
+          <div class="notch"><i></i></div>
+          <div class="ig-head"><span class="ig-av"></span><span id="pv-account">ton_compte</span></div>
+          <div class="thread" id="preview"></div>
+          <div class="ig-input">Message…</div>
+        </div></div>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <span class="err" id="form-err"></span>
+      <div class="actions">
+        <button type="button" class="btn" data-close>Annuler</button>
+        <button type="submit" class="btn dark" id="save">Mettre en ligne</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const nf = new Intl.NumberFormat('fr-FR');
+  const pct = (x) => `${(x * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;
+
+  const store = {
+    get() { try { return localStorage.getItem('autodm-key') || ''; } catch { return ''; } },
+    set(v) { try { localStorage.setItem('autodm-key', v); } catch {} },
+    clear() { try { localStorage.removeItem('autodm-key'); } catch {} },
+  };
+  let key = store.get();
+  let state = { automations: [], media: null, account: null, editing: null, selected: new Set() };
+
+  async function api(path, opts = {}) {
+    const res = await fetch(`/api${path}`, {
+      ...opts,
+      headers: { 'X-Admin-Key': key, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { showLogin('Clé incorrecte.'); throw new Error('Clé incorrecte.'); }
+    if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+    return data;
+  }
+
+  function toast(text) {
+    const t = $('toast');
+    t.textContent = text;
+    t.hidden = false;
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => (t.hidden = true), 2600);
+  }
+
+  function ago(ms) {
+    if (!ms) return 'jamais';
+    const s = Math.round((Date.now() - ms) / 1000);
+    if (s < 60) return 'à l’instant';
+    if (s < 3600) return `il y a ${Math.round(s / 60)} min`;
+    if (s < 86400) return `il y a ${Math.round(s / 3600)} h`;
+    return `il y a ${Math.round(s / 86400)} j`;
+  }
+
+  // ---------- Connexion ----------
+  function showLogin(error) {
+    $('app').hidden = true;
+    $('login').hidden = false;
+    $('login-err').hidden = !error;
+    $('login-err').textContent = error || '';
+    $('key').focus();
+  }
+  $('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    key = $('key').value.trim();
+    try {
+      await api('/status');
+      store.set(key);
+      start();
+    } catch (err) {
+      if (err.message !== 'Clé incorrecte.') showLogin(err.message);
+    }
+  });
+  $('logout').addEventListener('click', () => { store.clear(); key = ''; showLogin(); });
+
+  // ---------- Tableau de bord ----------
+  async function loadStatus() {
+    const s = await api('/status');
+    state.account = s.account;
+    $('account-name').textContent = s.account?.username ? `@${s.account.username}` : '';
+    $('pv-account').textContent = s.account?.username || 'ton_compte';
+    const dot = $('status-dot');
+    dot.className = 'dot';
+    if (s.dryRun) { dot.classList.add('warn'); $('status-text').textContent = 'Mode essai : rien ne part'; }
+    else if (s.accountError) { dot.classList.add('warn'); $('status-text').textContent = 'Jeton Instagram à vérifier'; }
+    else if (s.lastSignatureError && s.lastSignatureError > (s.lastWebhookAt || 0)) { dot.classList.add('warn'); $('status-text').textContent = 'Webhooks refusés : vérifie la clé secrète de l’app'; }
+    else if (s.lastWebhookAt) { dot.classList.add('on'); $('status-text').textContent = `En ligne · dernier événement ${ago(s.lastWebhookAt)}`; }
+    else { $('status-text').textContent = 'En attente du premier commentaire'; }
+    $('queued').textContent = s.queued ? `${s.queued} en attente` : '';
+  }
+
+  function mediaThumbs(ids) {
+    if (!ids.length) return '<span>toutes les publications</span>';
+    const byId = new Map((state.media || []).map((m) => [m.id, m]));
+    const shown = ids.slice(0, 3).map((id) => {
+      const m = byId.get(id);
+      const img = m ? (m.thumbnail_url || m.media_url || '') : '';
+      return `<i style="${img ? `background-image:url('${esc(img)}')` : ''}"></i>`;
+    }).join('');
+    return `<span class="thumbs">${shown}</span><span>${ids.length} publication${ids.length > 1 ? 's' : ''}</span>`;
+  }
+
+  function renderList() {
+    const list = $('list');
+    const autos = state.automations;
+    $('count').textContent = autos.length ? `${autos.length}` : '';
+    if (!autos.length) {
+      list.innerHTML = '<div class="empty"><b>Aucune automatisation</b>Crée la première : un mot-clé, un message, un lien.</div>';
+      return;
+    }
+    list.innerHTML = autos.map((a) => {
+      const ctr = a.sends ? pct(a.clicks / a.sends) : '–';
+      return `<div class="auto" data-id="${a.id}">
+        <span class="badge ${a.active ? '' : 'off'}">${a.active ? 'LIVE' : 'PAUSE'}</span>
+        <div style="min-width:0">
+          <div class="auto-name">${esc(a.name)}</div>
+          <div class="auto-meta">Commentaire sur ${mediaThumbs(a.media_ids)} · contient <span class="chip">${esc(a.keyword.toUpperCase())}</span>${a.require_follow ? ' · abonnement vérifié' : ''}</div>
+          <div class="auto-nums"><b>${nf.format(a.sends)}</b> envoi${a.sends > 1 ? 's' : ''} · <b>${nf.format(a.clicks)}</b> clic${a.clicks > 1 ? 's' : ''} · <b>${ctr}</b> CTR</div>
+        </div>
+        <div class="auto-side">
+          <label class="switch" title="${a.active ? 'Mettre en pause' : 'Remettre en ligne'}"><input type="checkbox" data-toggle ${a.active ? 'checked' : ''}><span></span></label>
+          <button class="btn ghost" data-edit>Modifier</button>
+          <button class="btn ghost danger" data-delete title="Supprimer">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const EVENT = {
+    comment: ['💬', (e) => `<b>@${esc(e.username || 'quelqu’un')}</b> a commenté`, (e) => `« ${esc(e.detail)} »`],
+    reply: ['↩︎', (e) => `Réponse publique à <b>@${esc(e.username || '?')}</b>`, () => ''],
+    dm: ['✉️', (e) => `DM envoyé à <b>@${esc(e.username || '?')}</b>`, () => ''],
+    follow_ask: ['🔒', (e) => `<b>@${esc(e.username || '?')}</b> n’est pas abonné`, () => 'abonnement demandé avant le lien'],
+    link: ['🔗', (e) => `Lien envoyé à <b>@${esc(e.username || '?')}</b>`, () => ''],
+    click: ['✓', (e) => `<b>@${esc(e.username || '?')}</b> a ouvert le lien`, () => ''],
+    skip: ['·', (e) => `<b>@${esc(e.username || '?')}</b> a déjà reçu ce DM`, () => 'pas de second envoi'],
+    retry: ['⏳', () => 'Meta freine les envois', (e) => `nouvel essai dans 10 min · ${esc(e.detail)}`],
+    error: ['!', () => 'Erreur', (e) => esc(e.detail)],
+  };
+
+  function renderFeed(events) {
+    const feed = $('feed');
+    if (!events.length) {
+      feed.innerHTML = '<div class="empty"><b>Rien pour l’instant</b>Les commentaires, DM et clics s’afficheront ici.</div>';
+      return;
+    }
+    feed.innerHTML = events.map((e) => {
+      const [ic, title, text] = EVENT[e.type] || ['·', () => esc(e.type), () => esc(e.detail)];
+      const sub = text(e);
+      return `<div class="ev"><span class="ev-ic ${esc(e.type)}">${ic}</span><div class="ev-body">
+        <div>${title(e)}${e.keyword ? ` <span class="chip">${esc(e.keyword.toUpperCase())}</span>` : ''}</div>
+        ${sub ? `<div class="ev-text">${sub}</div>` : ''}
+        <div class="ev-time">${ago(e.created_at)}</div></div></div>`;
+    }).join('');
+  }
+
+  async function loadAll() {
+    const [stats, activity] = await Promise.all([api('/stats'), api('/activity'), loadStatus()]);
+    state.automations = stats.automations;
+    const t = stats.totals;
+    $('s-sends').textContent = nf.format(t.sends);
+    $('s-clicks').textContent = nf.format(t.clicks);
+    $('s-clicks-hint').textContent = `ont ouvert le lien, sur ${nf.format(t.people)} personne${t.people > 1 ? 's' : ''} servie${t.people > 1 ? 's' : ''}`;
+    $('s-ctr').textContent = t.sends ? pct(t.ctr) : '0 %';
+    $('s-active').textContent = nf.format(t.active);
+    $('s-active-hint').textContent = `sur ${nf.format(t.total)} automatisation${t.total > 1 ? 's' : ''}`;
+    renderList();
+    renderFeed(activity.events);
+  }
+
+  async function loadMedia() {
+    if (state.media) return state.media;
+    const r = await api('/media');
+    state.media = r.media || [];
+    if (r.error) $('media-help').textContent = `Impossible de lire tes publications : ${r.error}`;
+    return state.media;
+  }
+
+  $('list').addEventListener('click', async (e) => {
+    const row = e.target.closest('.auto');
+    if (!row) return;
+    const id = Number(row.dataset.id);
+    const a = state.automations.find((x) => x.id === id);
+    if (e.target.closest('[data-toggle]')) {
+      await api(`/automations/${id}/toggle`, { method: 'POST' });
+      toast(a.active ? 'Automatisation en pause' : 'Automatisation en ligne');
+      loadAll();
+    } else if (e.target.closest('[data-edit]')) {
+      openEditor(a);
+    } else if (e.target.closest('[data-delete]')) {
+      if (!confirm(`Supprimer « ${a.name} » ? Ses statistiques disparaissent aussi de la liste.`)) return;
+      await api(`/automations/${id}`, { method: 'DELETE' });
+      toast('Automatisation supprimée');
+      loadAll();
+    }
+  });
+  $('refresh').addEventListener('click', () => loadAll().then(() => toast('À jour')));
+  $('new').addEventListener('click', () => openEditor(null));
+
+  // ---------- Éditeur ----------
+  const DEFAULTS = {
+    keyword: '', name: '', media_ids: [], public_replies: $('f-replies').value.split('\n'),
+    dm_text: $('f-dm').value, button_label: $('f-button').value,
+    require_follow: false, follow_text: $('f-follow-text').value, follow_button: $('f-follow-button').value,
+    link_url: '', link_text: $('f-link-text').value, link_label: $('f-link-label').value, once_per_user: true,
+  };
+
+  function openEditor(a) {
+    const v = a || DEFAULTS;
+    state.editing = a ? a.id : null;
+    $('editor-title').textContent = a ? `Modifier « ${a.name} »` : 'Nouvelle automatisation';
+    $('save').textContent = a ? 'Enregistrer' : 'Mettre en ligne';
+    $('f-keyword').value = v.keyword;
+    $('f-name').value = a ? v.name : '';
+    $('f-reply-on').checked = !a || v.public_replies.length > 0;
+    $('f-replies').value = (v.public_replies.length ? v.public_replies : DEFAULTS.public_replies).join('\n');
+    $('f-dm').value = v.dm_text;
+    $('f-button').value = v.button_label;
+    $('f-follow').checked = v.require_follow;
+    $('f-follow-text').value = v.follow_text;
+    $('f-follow-button').value = v.follow_button;
+    $('f-url').value = v.link_url;
+    $('f-link-text').value = v.link_text;
+    $('f-link-label').value = v.link_label;
+    $('f-once').checked = v.once_per_user;
+    state.selected = new Set(v.media_ids);
+    $('f-all').checked = v.media_ids.length === 0;
+    $('form-err').textContent = '';
+    syncEditor();
+    $('editor').hidden = false;
+    document.body.style.overflow = 'hidden';
+    $('f-keyword').focus();
+  }
+
+  function closeEditor() {
+    $('editor').hidden = true;
+    document.body.style.overflow = '';
+  }
+  document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', closeEditor));
+  $('editor').addEventListener('click', (e) => { if (e.target === $('editor')) closeEditor(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('editor').hidden) closeEditor(); });
+
+  async function renderMedia() {
+    const box = $('media-box');
+    box.hidden = $('f-all').checked;
+    if (box.hidden) return;
+    const grid = $('media-grid');
+    grid.innerHTML = '<p class="help">Chargement de tes publications…</p>';
+    const media = await loadMedia();
+    if (!media.length) { grid.innerHTML = ''; return; }
+    grid.innerHTML = media.map((m) => {
+      const img = m.thumbnail_url || (m.media_type === 'IMAGE' ? m.media_url : '') || '';
+      const date = m.timestamp ? new Date(m.timestamp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+      return `<button type="button" class="media ${state.selected.has(m.id) ? 'on' : ''}" data-media="${esc(m.id)}" title="${esc((m.caption || '').slice(0, 120))}" style="${img ? `background-image:url('${esc(img)}')` : ''}"><small>${esc(date)}</small></button>`;
+    }).join('');
+    $('media-help').textContent = `${state.selected.size} sélectionnée${state.selected.size > 1 ? 's' : ''}`;
+  }
+  $('media-grid').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-media]');
+    if (!b) return;
+    const id = b.dataset.media;
+    state.selected.has(id) ? state.selected.delete(id) : state.selected.add(id);
+    b.classList.toggle('on');
+    $('media-help').textContent = `${state.selected.size} sélectionnée${state.selected.size > 1 ? 's' : ''}`;
+  });
+
+  function bubble(text, button) {
+    const user = 'nouvel_abonne';
+    const t = esc(String(text || '').replaceAll('{pseudo}', `@${user}`));
+    return `<div class="msg"><span class="ig-av"></span><div class="bubble"><p>${t}</p>${button ? `<div class="b">${esc(button)}</div>` : ''}</div></div>`;
+  }
+
+  function renderPreview() {
+    const parts = [];
+    parts.push(`<div class="sys">A répondu à ton commentaire</div>`);
+    parts.push(bubble($('f-dm').value, $('f-button').value));
+    parts.push(`<div class="me">${esc($('f-button').value || 'Recevoir')}</div>`);
+    if ($('f-follow').checked) {
+      parts.push(bubble($('f-follow-text').value, $('f-follow-button').value));
+      parts.push(`<div class="me">${esc($('f-follow-button').value || "C'est fait")}</div>`);
+    }
+    parts.push(bubble($('f-link-text').value, $('f-link-label').value));
+    $('preview').innerHTML = parts.join('');
+  }
+
+  function syncEditor() {
+    $('reply-box').hidden = !$('f-reply-on').checked;
+    $('follow-box').hidden = !$('f-follow').checked;
+    document.querySelectorAll('[data-count]').forEach((el) => { el.textContent = $(el.dataset.count).value.length; });
+    renderPreview();
+    renderMedia();
+  }
+  $('form').addEventListener('input', (e) => {
+    if (e.target.id === 'f-all' || e.target.id === 'f-follow' || e.target.id === 'f-reply-on') return syncEditor();
+    document.querySelectorAll('[data-count]').forEach((el) => { el.textContent = $(el.dataset.count).value.length; });
+    renderPreview();
+  });
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = {
+      keyword: $('f-keyword').value,
+      name: $('f-name').value,
+      media_ids: $('f-all').checked ? [] : [...state.selected],
+      public_replies: $('f-reply-on').checked ? $('f-replies').value.split('\n') : [],
+      dm_text: $('f-dm').value,
+      button_label: $('f-button').value,
+      require_follow: $('f-follow').checked,
+      follow_text: $('f-follow-text').value,
+      follow_button: $('f-follow-button').value,
+      link_url: $('f-url').value,
+      link_text: $('f-link-text').value,
+      link_label: $('f-link-label').value,
+      once_per_user: $('f-once').checked,
+      active: state.editing ? state.automations.find((a) => a.id === state.editing).active : true,
+    };
+    if (!$('f-all').checked && !body.media_ids.length) { $('form-err').textContent = 'Choisis au moins une publication, ou active « Toutes mes publications ».'; return; }
+    try {
+      if (state.editing) await api(`/automations/${state.editing}`, { method: 'PUT', body: JSON.stringify(body) });
+      else await api('/automations', { method: 'POST', body: JSON.stringify(body) });
+      closeEditor();
+      toast(state.editing ? 'Enregistré' : 'Automatisation en ligne');
+      loadAll();
+    } catch (err) {
+      $('form-err').textContent = err.message;
+    }
+  });
+
+  // ---------- Démarrage ----------
+  async function start() {
+    $('login').hidden = true;
+    $('app').hidden = false;
+    try {
+      await loadAll();
+      loadMedia().then(renderList).catch(() => {});
+    } catch (err) {
+      if (err.message !== 'Clé incorrecte.') toast(err.message);
+    }
+  }
+  setInterval(() => { if (!$('app').hidden && $('editor').hidden) loadAll().catch(() => {}); }, 30000);
+
+  key ? start() : showLogin();
+})();
+</script>
+</body>
+</html>
