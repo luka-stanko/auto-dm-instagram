@@ -206,21 +206,24 @@ async function deliver(env, job) {
 }
 
 // Appelé toutes les 10 minutes par le cron.
+// Huit envois au plus par passage : l'offre gratuite de Cloudflare plafonne
+// les requêtes à la base par exécution, et chaque envoi en coûte plusieurs.
+// L'envoi est retiré de la file AVANT de partir : si le passage s'arrête en
+// route, on perd au pire un nouvel essai, jamais on n'envoie deux fois le DM.
 export async function processQueue(env) {
-  const { results } = await env.DB.prepare('SELECT * FROM queue WHERE next_at <= ? ORDER BY id LIMIT 25').bind(Date.now()).all();
+  const { results } = await env.DB.prepare('SELECT * FROM queue WHERE next_at <= ? ORDER BY id LIMIT 8').bind(Date.now()).all();
   for (const row of results) {
     const job = JSON.parse(row.payload);
+    await env.DB.prepare('DELETE FROM queue WHERE id = ?').bind(row.id).run();
     try {
       await send(env, job);
-      await env.DB.prepare('DELETE FROM queue WHERE id = ?').bind(row.id).run();
       await logEvent(env, { automationId: job.automationId, user: job.user, type: eventType(job) });
     } catch (e) {
       const attempts = row.attempts + 1;
       if (e instanceof GraphError && e.transient && attempts < MAX_ATTEMPTS) {
-        await env.DB.prepare('UPDATE queue SET attempts = ?, next_at = ?, last_error = ? WHERE id = ?')
-          .bind(attempts, Date.now() + RETRY_DELAY, e.message, row.id).run();
+        await env.DB.prepare('INSERT INTO queue (payload, attempts, next_at, last_error, created_at) VALUES (?, ?, ?, ?, ?)')
+          .bind(row.payload, attempts, Date.now() + RETRY_DELAY, e.message, row.created_at).run();
       } else {
-        await env.DB.prepare('DELETE FROM queue WHERE id = ?').bind(row.id).run();
         await logEvent(env, { automationId: job.automationId, user: job.user, type: 'error', detail: `${eventType(job)} abandonné : ${e.message}` });
       }
     }
